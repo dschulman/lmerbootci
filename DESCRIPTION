@@ -1,11 +1,17 @@
 Package: lmerbootci
 Title: Bootstrapped confidence intervals for linear mixed-effect regression
-Description: lmerbootci provides easy methods of performing bootstrap resampling
-  on linear mixed-effect regression models fit with the lme4 package.  It implements
-  two types of resampling: a fully parametric bootstrap, and a semiparametric
-  bootstrap which resamples residuals.
+Description: lmerbootci provides easy methods of performing bootstrap
+    resampling on linear mixed-effect regression models fit with the lme4
+    package.  It implements two types of resampling: a fully parametric
+    bootstrap, and a semiparametric bootstrap which resamples residuals.
 Version: 0.1.0
 Maintainer: Daniel Schulman <danieljschulman@gmail.com>
 Author: Daniel Schulman <danieljschulman@gmail.com>
-Depends: lme4, boot
+Depends:
+    lme4,
+    boot,
+    Matrix
 License: BSD
+Collate:
+    'lmerbootci.R'
+    'help.R'

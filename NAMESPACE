@@ -1,0 +1,4 @@
+export(lmer.boot)
+export(ranef.reflate)
+export(resamp.resid)
+importMethodsFrom(Matrix,t)
