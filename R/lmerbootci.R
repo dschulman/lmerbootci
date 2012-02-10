@@ -54,6 +54,22 @@ resamp.resid <- function(m) {
   as.vector(eta.fix + eta.ranef + resid.boot)
 }
 
+as.named.vector <- function(x, sep=':') {
+  structure(
+    as.vector(x),
+    names=apply(expand.grid(dimnames(x)), 1, paste, collapse=sep))
+}
+
+extract.estimates <- function(m) {
+  c(fixef(m),
+    unlist(lapply(VarCorr(m), function (group) {
+      sds <- attr(group, 'stddev')
+      cors <- attr(group, 'correlation')
+      c(sds, as.named.vector(cors)[lower.tri(cors)])
+    })),
+    Residual=attr(VarCorr(m), 'sc'))
+}
+
 #' Bootstrap resampling of a mixed-effect model
 #'
 #' Generates \code{R} bootstrap replicates of the parameter estimates
@@ -76,10 +92,7 @@ lmer.boot <- function(m, R, type=c('parametric','residuals'), ...) {
   type <- match.arg(type)
   boot(
     data=model.response(model.frame(m)),
-    statistic=function(data) { 
-      m2 <- refit(m, data)
-      c(fixef(m2), sapply(VarCorr(m2), diag))
-    },
+    statistic=function(data) extract.estimates(refit(m, data)),
     sim='parametric',
     ran.gen=switch(type,
       parametric=function(data, mle) simulate(mle),
