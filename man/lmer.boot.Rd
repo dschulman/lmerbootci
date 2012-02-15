@@ -17,7 +17,9 @@
   \code{\link[boot]{boot}}.}
 }
 \value{
-  An object of class \code{\link[boot]{boot}}
+  An object of class \code{lmer.boot}, which is an object
+  of class \code{\link[boot]{boot}} with some additional
+  information appended.
 }
 \description{
   Generates \code{R} bootstrap replicates of the parameter

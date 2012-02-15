@@ -81,7 +81,8 @@ extract.estimates <- function(m) {
 #' @param R The number of bootstrap replicates
 #' @param type The resampling scheme to use.  Defaults to parametric. 
 #' @param ... Additional arguments, passed to \code{\link[boot]{boot}}.
-#' @return An object of class \code{\link[boot]{boot}}
+#' @return An object of class \code{lmer.boot}, which is an object of class
+#'   \code{\link[boot]{boot}} with some additional information appended.
 #' @references Carpenter, J. R., Goldstein, H., and Rasbash, J. 
 #'   (2003). A novel bootstrap procedure for assessing the 
 #'   relationship between class size and achievement. Journal of the
@@ -90,14 +91,74 @@ extract.estimates <- function(m) {
 #' @export
 lmer.boot <- function(m, R, type=c('parametric','residuals'), ...) {
   type <- match.arg(type)
-  boot(
-    data=model.response(model.frame(m)),
-    statistic=function(data) extract.estimates(refit(m, data)),
-    sim='parametric',
-    ran.gen=switch(type,
-      parametric=function(data, mle) simulate(mle),
-      residuals=function(data, mle) resamp.resid(mle)),
-    mle=m,
-    R=R,
-    ...)
+  elapsed <- system.time(
+    b <- boot(
+      data=model.response(model.frame(m)),
+      statistic=function(data) extract.estimates(refit(m, data)),
+      sim='parametric',
+      ran.gen=switch(type,
+                     parametric=function(data, mle) simulate(mle),
+                     residuals=function(data, mle) resamp.resid(mle)),
+      mle=m,
+      R=R,
+      ...))
+  b$type <- type
+  b$time <- elapsed
+  class(b) <- c('lmer.boot', class(b))
+  b
+}
+
+coefmat <- function(b, index, pvals=T) {
+  if (length(pvals)==1)
+    pvals <- rep(pvals, length(index))
+  t0 <- b$t0[index]
+  t <- b$t[,index,drop=F]
+  R <- b$R
+  data.frame(
+    Estimate=t0,
+    Bias=t0 - colMeans(t),
+    SE.boot=apply(t, 2, sd),
+    p.boot=ifelse(pvals, pmax(1, 2*pmin(colSums(t>0), R-colSums(t>0)))/R, NA),
+    row.names=names(t0))
+}
+
+#' Summarize a bootstraped mixed-effect model
+#' 
+#' The \code{summary} method for the results of \code{\link{lmer.boot}}, which
+#' produces formatted summaries of bootstrapped standard errors, bias, and
+#' percentile-based p values for fixed and random effects.
+#'
+#' @param object An object of class \code{lmer.boot}
+#' @param ... Additional arguments
+#' @return An object of class \code{summary.lmer.boot}
+#' @seealso \code{\link{lmer.boot}}
+#' @method summary lmer.boot
+#' @S3method summary lmer.boot
+#' @S3method print summary.lmer.boot
+summary.lmer.boot <- function(object, ...) {
+  b <- object
+  m <- b$mle
+  ind.fixef <- 1:length(fixef(m))
+  ind.ranef <- (length(fixef(m))+1):length(b$t0)
+  pvals.ranef <- unlist(lapply(VarCorr(m), function(re) {
+    n <- nrow(re)
+    c(rep(F, n), rep(T, choose(n, 2)))
+  }))
+  structure(
+    list(R=b$R, type=b$type, time=b$time,
+         fixef=coefmat(b, ind.fixef),
+         ranef=coefmat(b, ind.ranef, c(pvals.ranef, F))),
+    class='summary.lmer.boot')
+}
+
+tocaps <- function(x) {
+  paste(toupper(substring(x, 1, 1)), substring(x, 2), sep='')
+}
+
+print.summary.lmer.boot <- function(x, digits=max(3, getOption('digits')-3), ...) {
+  cat(sprintf('%s Bootstrap (%d replicates)\n', tocaps(x$type), x$R))
+  cat('\nFixed Effects:\n')
+  printCoefmat(x$fixef, digits, has.Pvalue=T, ...)
+  cat('\nRandom Effects and Residuals:\n')
+  printCoefmat(x$ranef, digits, has.Pvalue=T, ...)
 }
