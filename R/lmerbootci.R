@@ -77,9 +77,22 @@ extract.estimates <- function(m) {
 #' supported: a fully parametric bootstrap, and a semiparametric
 #' bootstrap that resamples residuals and random effects.
 #'
+#' The \code{parallel} argument can be used two ways: first, it can
+#' accept an integer >=2, in which case it will start up a cluster
+#' and run it for the duration of the call.  Alternatively, you can
+#' give it a \code{cluster} object, as returned by 
+#' \code{\link[parallel]{makeCluster}} or related functions.
+#'
+#' Using a pre-existing cluster is faster if you are doing multiple
+#' runs, since it avoids overhead of repeated startups.  However, you
+#' must make sure this package is loaded on the cluster: something like
+#' \code{clusterEvalQ(cl, library(lmerbootci))} should do it.
+#'
 #' @param m A fitted model of type \code{\link[lme4]{mer-class}}
 #' @param R The number of bootstrap replicates
 #' @param type The resampling scheme to use.  Defaults to parametric. 
+#' @param parallel Specifies whether or how to use parallel execution.
+#'    See below for details.  Defaults to no parallelization.
 #' @param ... Additional arguments, passed to \code{\link[boot]{boot}}.
 #' @return An object of class \code{lmer.boot}, which is an object of class
 #'   \code{\link[boot]{boot}} with some additional information appended.
@@ -89,8 +102,18 @@ extract.estimates <- function(m) {
 #'   Royal Statistical Society: Series C (Applied Statistics), 
 #'   52(4):431-443.
 #' @export
-lmer.boot <- function(m, R, type=c('parametric','residuals'), ...) {
+lmer.boot <- function(m, R, type=c('parametric','residuals'), 
+                      parallel=NULL, ...) {
   type <- match.arg(type)
+  cl <- NULL
+  if (inherits(parallel, 'cluster'))
+    cl <- parallel
+  else {
+    stopifnot(is.numeric(parallel) && parallel>1)
+    cl <- makeCluster(parallel, 'PSOCK')
+    on.exit(stopCluster(cl))
+    clusterEvalQ(cl, library(lmerbootci))
+  }
   elapsed <- system.time(
     b <- boot(
       data=model.response(model.frame(m)),
@@ -101,6 +124,12 @@ lmer.boot <- function(m, R, type=c('parametric','residuals'), ...) {
                      residuals=function(data, mle) resamp.resid(mle)),
       mle=m,
       R=R,
+      # next two arguments are kind of a hack
+      # relying on boot just wanting to know that they are there,
+      # then ignoring them and using the value of "cl" instead
+      parallel=if (is.null(cl)) 'no' else 'snow',
+      ncpus=if (is.null(cl)) 1 else 2,
+      cl=cl,
       ...))
   b$type <- type
   b$time <- elapsed

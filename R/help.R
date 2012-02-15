@@ -14,4 +14,5 @@
 #' @name lmerbootci
 #' @aliases lmerbootci lmerbootci-package
 #' @importMethodsFrom Matrix t
+#' @import parallel
 NULL
