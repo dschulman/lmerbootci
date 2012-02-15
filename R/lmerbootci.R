@@ -108,7 +108,7 @@ lmer.boot <- function(m, R, type=c('parametric','residuals'),
   cl <- NULL
   if (inherits(parallel, 'cluster'))
     cl <- parallel
-  else {
+  else if (!is.null(parallel)) {
     stopifnot(is.numeric(parallel) && parallel>1)
     cl <- makeCluster(parallel, 'PSOCK')
     on.exit(stopCluster(cl))
