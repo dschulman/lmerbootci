@@ -33,6 +33,23 @@ sample.rows <- function(df, size=nrow(df), replace=F, prob=NULL) {
   df[sample.int(nrow(df), size, replace, prob),]
 }
 
+family.mer <- function(object, ...) {
+  family <- object@call$family
+  if (is.null(family))
+    family <- gaussian()
+  if (is.call(family))
+    family <- eval(family, envir=parent.frame(2))
+  if (is.symbol(family)) 
+    family <- as.character(family)
+  if (is.character(family)) 
+    family <- get(family, mode = "function", envir = parent.frame(2))
+  if (is.function(family)) 
+    family <- family()
+  if (is.null(family$family)) 
+    stop("'family' not recognized")
+  family
+}
+
 #' Resample residuals of a mixed-effect model
 #'
 #' Generates a new response vector for a fitted mixed-effect model
@@ -45,6 +62,9 @@ sample.rows <- function(df, size=nrow(df), replace=F, prob=NULL) {
 #' @seealso \code{\link{ranef.reflate}}
 #' @export
 resamp.resid <- function(m) {
+  f <- family(m)
+  if (f$family!='gaussian' || f$link!='identity')
+    stop("Residual resampling for GLMMs is not yet supported")
   resid.scaled <- attr(VarCorr(m), 'sc') * resid(m) / sd(resid(m))
   resid.boot <- sample(resid.scaled, replace=T)
   ranef.boot <- lapply(ranef.reflate(m), sample.rows, replace=T)
