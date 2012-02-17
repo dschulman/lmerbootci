@@ -157,16 +157,25 @@ lmer.boot <- function(m, R, type=c('parametric','residuals'),
   b
 }
 
-coefmat <- function(b, index, pvals=T) {
+coefmat <- function(b, index, ci.type='perc', pvals=T) {
   if (length(pvals)==1)
     pvals <- rep(pvals, length(index))
   t0 <- b$t0[index]
   t <- b$t[,index,drop=F]
   R <- b$R
+  cis <- sapply(index, function(i) {
+    bci <- boot.ci(b, type=ci.type, index=i)
+    switch(ci.type,
+           norm=bci$normal[1,2:3],
+           perc=bci$percent[1,4:5],
+           basic=bci$basic[1,4:5],
+           stud=bci$student[1,4:5],
+           bca=bci$bca[1,4:5])
+  })
   data.frame(
     Estimate=t0,
     Bias=t0 - colMeans(t),
-    SE.boot=apply(t, 2, sd),
+    CI.low=cis[1,], CI.high=cis[2,],
     p.boot=ifelse(pvals, pmax(1, 2*pmin(colSums(t>0), R-colSums(t>0)))/R, NA),
     row.names=names(t0))
 }
@@ -174,17 +183,30 @@ coefmat <- function(b, index, pvals=T) {
 #' Summarize a bootstraped mixed-effect model
 #' 
 #' The \code{summary} method for the results of \code{\link{lmer.boot}}, which
-#' produces formatted summaries of bootstrapped standard errors, bias, and
-#' percentile-based p values for fixed and random effects.
+#' produces formatted summaries of bootstrapped bias, confidence intervals and
+#' percentile-based p values for fixed effects and random effects covariances.
+#'
+#' Studentized and bias-corrected accelerated (BCA) confidence 
+#' intervals are not supported.  I think that studentized will be in the
+#' future, but there may be more fundamental problems with BCA.
+#' Currently p-values correspond to a percentile confidence interval, 
+#' regardless of \code{ci.type}.  This will hopefully change in the future.
 #'
 #' @param object An object of class \code{lmer.boot}
+#' @param ci.type The type of confidence interval, as in 
+#'   \code{\link[boot]{boot.ci}}
 #' @param ... Additional arguments
 #' @return An object of class \code{summary.lmer.boot}
 #' @seealso \code{\link{lmer.boot}}
 #' @method summary lmer.boot
 #' @S3method summary lmer.boot
 #' @S3method print summary.lmer.boot
-summary.lmer.boot <- function(object, ...) {
+summary.lmer.boot <- function(object, ci.type=c('perc','norm','basic','stud','pca'), ...) {
+  ci.type <- match.arg(ci.type)
+  if (ci.type=='stud')
+    stop('Studentized confidence intervals are not yet supported')
+  if (ci.type=='bca')
+    stop('Bias-corrected confidence intervals are not supported')
   b <- object
   m <- b$mle
   ind.fixef <- 1:length(fixef(m))
@@ -194,9 +216,9 @@ summary.lmer.boot <- function(object, ...) {
     c(rep(F, n), rep(T, choose(n, 2)))
   }))
   structure(
-    list(R=b$R, type=b$type, time=b$time,
-         fixef=coefmat(b, ind.fixef),
-         ranef=coefmat(b, ind.ranef, c(pvals.ranef, F))),
+    list(R=b$R, type=b$type, ci.type=ci.type, time=b$time,
+         fixef=coefmat(b, ind.fixef, ci.type),
+         ranef=coefmat(b, ind.ranef, ci.type, c(pvals.ranef, F))),
     class='summary.lmer.boot')
 }
 
@@ -206,6 +228,10 @@ tocaps <- function(x) {
 
 print.summary.lmer.boot <- function(x, digits=max(3, getOption('digits')-3), ...) {
   cat(sprintf('%s Bootstrap (%d replicates)\n', tocaps(x$type), x$R))
+  cat(sprintf('%s confidence intervals\n', switch(x$ci.type,
+    perc='Percentile',
+    basic='Basic',
+    norm='Normal')))
   cat('\nFixed Effects:\n')
   printCoefmat(x$fixef, digits, has.Pvalue=T, ...)
   cat('\nRandom Effects and Residuals:\n')
