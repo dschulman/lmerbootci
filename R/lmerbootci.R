@@ -157,6 +157,15 @@ lmer.boot <- function(m, R, type=c('parametric','residuals'),
   b
 }
 
+boot.2tailp <- function(t, t0, R, type=c('perc','norm','basic')) {
+  index.to.p <- function(x) pmax(1, 2*pmin(x, R-x))/R
+  switch(
+    match.arg(type),
+    perc=index.to.p(colSums(t>0)),
+    norm=pnorm(0, mean=abs(2*t0-colMeans(t)), sd=apply(t, 2, sd))*2,
+    basic=index.to.p(rowSums(apply(t, 1, '<', 2*t0))))
+}
+
 coefmat <- function(b, index, ci.type='perc', pvals=T) {
   if (length(pvals)==1)
     pvals <- rep(pvals, length(index))
@@ -176,7 +185,7 @@ coefmat <- function(b, index, ci.type='perc', pvals=T) {
     Estimate=t0,
     Bias=colMeans(t) - t0,
     CI.low=cis[1,], CI.high=cis[2,],
-    p.boot=ifelse(pvals, pmax(1, 2*pmin(colSums(t>0), R-colSums(t>0)))/R, NA),
+    p.boot=ifelse(pvals, boot.2tailp(t, t0, R, ci.type), NA),
     row.names=names(t0))
 }
 
@@ -184,13 +193,13 @@ coefmat <- function(b, index, ci.type='perc', pvals=T) {
 #' 
 #' The \code{summary} method for the results of \code{\link{lmer.boot}}, which
 #' produces formatted summaries of bootstrapped bias, confidence intervals and
-#' percentile-based p values for fixed effects and random effects covariances.
+#' p values for fixed effects and random effects covariances.
 #'
 #' Studentized and bias-corrected accelerated (BCA) confidence 
 #' intervals are not supported.  I think that studentized will be in the
 #' future, but there may be more fundamental problems with BCA.
-#' Currently p-values correspond to a percentile confidence interval, 
-#' regardless of \code{ci.type}.  This will hopefully change in the future.
+#' P values correspond to the largest confidence interval that excludes zero,
+#' and therefore will change with the selected type of confidence interval.
 #'
 #' @param object An object of class \code{lmer.boot}
 #' @param ci.type The type of confidence interval, as in 
