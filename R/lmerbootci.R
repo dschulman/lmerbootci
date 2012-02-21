@@ -174,7 +174,7 @@ coefmat <- function(b, index, ci.type='perc', pvals=T) {
   })
   data.frame(
     Estimate=t0,
-    Bias=t0 - colMeans(t),
+    Bias=colMeans(t) - t0,
     CI.low=cis[1,], CI.high=cis[2,],
     p.boot=ifelse(pvals, pmax(1, 2*pmin(colSums(t>0), R-colSums(t>0)))/R, NA),
     row.names=names(t0))
