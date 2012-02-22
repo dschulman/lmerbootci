@@ -1,5 +1,6 @@
 S3method(print,summary.lmer.boot)
 S3method(summary,lmer.boot)
+S3method(update,lmer.boot)
 export(lmer.boot)
 export(ranef.reflate)
 export(resamp.resid)

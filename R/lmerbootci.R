@@ -246,3 +246,24 @@ print.summary.lmer.boot <- function(x, digits=max(3, getOption('digits')-3), ...
   cat('\nRandom Effects and Residuals:\n')
   printCoefmat(x$ranef, digits, has.Pvalue=T, ...)
 }
+
+#' Update a bootstrapped mixed-effect model with additional replications
+#'
+#' \code{update} performs additional replications, using the same sampling
+#' scheme as the original object.
+#'
+#' @param object An object of class \code{lmer.boot}
+#' @param R The number of additional bootstrap replications
+#' @param parallel Controls parallel execution, as in \code{\link{lmer.boot}}
+#' @param ... Additional arguments (unused)
+#' @return An object of class \code{lmer.boot}, with both the old and new samples
+#' @method update lmer.boot
+#' @S3method update lmer.boot
+update.lmer.boot <- function(object, R, parallel=NULL, ...) {
+  obj2 <- lmer.boot(m=object$mle, R=R, type=object$type, parallel=parallel)
+  result <- c(object, obj2)
+  result$type <- object$type
+  result$time <- object$time + obj2$time
+  class(result) <- class(object)
+  result
+}
