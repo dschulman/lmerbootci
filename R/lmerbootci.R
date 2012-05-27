@@ -87,7 +87,7 @@ extract.estimates <- function(m) {
       cors <- attr(group, 'correlation')
       c(sds, as.named.vector(cors)[lower.tri(cors)])
     })),
-    Residual=attr(VarCorr(m), 'sc'))
+    Residual=na.omit(attr(VarCorr(m), 'sc')))
 }
 
 #' Bootstrap resampling of a mixed-effect model
@@ -224,10 +224,12 @@ summary.lmer.boot <- function(object, ci.type=c('perc','norm','basic','stud','pc
     n <- nrow(re)
     c(rep(F, n), rep(T, choose(n, 2)))
   }))
+  extra <- length(ind.ranef) - length(pvals.ranef)
+  pvals.ranef <- c(pvals.ranef, rep(F, extra))
   structure(
     list(R=b$R, type=b$type, ci.type=ci.type, time=b$time,
          fixef=coefmat(b, ind.fixef, ci.type),
-         ranef=coefmat(b, ind.ranef, ci.type, c(pvals.ranef, F))),
+         ranef=coefmat(b, ind.ranef, ci.type, pvals.ranef)),
     class='summary.lmer.boot')
 }
 
