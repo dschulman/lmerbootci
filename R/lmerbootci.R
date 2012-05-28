@@ -63,15 +63,34 @@ family.mer <- function(object, ...) {
 #' @export
 resamp.resid <- function(m) {
   f <- family(m)
-  if (f$family!='gaussian' || f$link!='identity')
-    stop("Residual resampling for GLMMs is not yet supported")
-  resid.scaled <- attr(VarCorr(m), 'sc') * resid(m) / sd(resid(m))
-  resid.boot <- sample(resid.scaled, replace=T)
   ranef.boot <- lapply(ranef.reflate(m), sample.rows, replace=T)
   ranef.boot <- unlist(ranef.boot, use.name=F)
   eta.fix <- as.vector(model.matrix(m) %*% fixef(m))
   eta.ranef <- t(m@Zt) %*% ranef.boot
-  as.vector(eta.fix + eta.ranef + resid.boot)
+  if (f$family=='gaussian' && f$link=='identity') {
+    resid.scaled <- attr(VarCorr(m), 'sc') * resid(m) / sd(resid(m))
+    resid.boot <- sample(resid.scaled, replace=T)
+    as.vector(eta.fix + eta.ranef + resid.boot)
+  } else if (f$family=='binomial' || f$family=='poisson') {
+    mu <- f$linkinv(as.numeric(eta.fix + eta.ranef))
+    resid.adjust <- scale(residuals(m), center=T, scale=F)
+    resid.boot <- sample(residuals(m), replace=T)
+    resid.depearson <- resid.boot*sqrt(f$var(mu)/m@pWt)
+    y.boot <- as.vector(mu + resid.depearson)
+    if (f$family=='poisson') {
+      pmax(0, round(y.boot))
+    } else {
+      resp <- model.response(m@frame)
+      if (! is.matrix(resp)) {
+        pmax(0, pmin(1, round(y.boot)))
+      } else {
+        trials <- rowSums(resp)
+        success <- pmax(0, pmin(trials, round(y.boot*trials)))
+        cbind(success, trials - success)
+      }
+    }
+  } else
+    stop("residual resampling not implemented for this glmm family")
 }
 
 as.named.vector <- function(x, sep=':') {
