@@ -118,6 +118,11 @@ setup.cluster <- function(parallel) {
 #' are properly nested, and may not give sensible results in other
 #' cases.
 #' 
+#' For models fit with restricted maximum likelihood (REML), this still
+#' uses the likelihood (rather than the REML criterion), following the
+#' \code{lme4} package. Models are refit to the bootstrap replicates using 
+#' whichever method, REML or ML, was used originally.
+#' 
 #' The \code{parallel} argument can be used two ways: first, it can
 #' accept an integer >=2, in which case it will start up a cluster
 #' and run it for the duration of the call.  Alternatively, you can
@@ -143,13 +148,13 @@ lmer.bootlr <- function(m0, m1, R, type=c('parametric','residuals'),
   type <- match.arg(type)
   cl <- setup.cluster(parallel)
   starttime <- proc.time()
-  lr <- 2 * (logLik(m1) - logLik(m0))
+  lr <- 2 * (logLik(m1, REML=F) - logLik(m0, REML=F))
   newresp <- switch(type, 
                     parametric=simulate, 
                     residuals=resamp.resid)
   f <- function(x) {
     y <- newresp(m0)
-    2 * (logLik(refit(m1, y)) - logLik(refit(m0, y)))
+    2 * (logLik(refit(m1, y), REML=F) - logLik(refit(m0, y), REML=F))
   }
   if (is.null(cl))
     lrref <- sapply(integer(R), f)

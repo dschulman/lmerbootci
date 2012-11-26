@@ -38,6 +38,12 @@
   models are properly nested, and may not give sensible
   results in other cases.
 
+  For models fit with restricted maximum likelihood (REML),
+  this still uses the likelihood (rather than the REML
+  criterion), following the \code{lme4} package. Models are
+  refit to the bootstrap replicates using whichever method,
+  REML or ML, was used originally.
+
   The \code{parallel} argument can be used two ways: first,
   it can accept an integer >=2, in which case it will start
   up a cluster and run it for the duration of the call.
