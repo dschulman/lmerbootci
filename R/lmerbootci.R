@@ -93,6 +93,74 @@ resamp.resid <- function(m) {
     stop("residual resampling not implemented for this glmm family")
 }
 
+setup.cluster <- function(parallel) {
+  cl <- NULL
+  if (inherits(parallel, 'cluster'))
+    cl <- parallel
+  else if (!is.null(parallel)) {
+    stopifnot(is.numeric(parallel) && parallel>1)
+    cl <- makeCluster(parallel, 'PSOCK')
+    on.exit(stopCluster(cl))
+    clusterEvalQ(cl, library(lmerbootci))
+  }
+  cl
+}
+
+#' Perform a bootstrapped likelihood-ratio test
+#' 
+#' Given a set of nested models, generated \code{R} bootstrap 
+#' replicates from the inner (smaller, null hypothesis) model, and 
+#' performs a likelihood-ratio test, using the likelihood ratios of the
+#' replicates as a reference distribution.  Both fully parametric
+#' and residual resampling are supported.
+#' 
+#' Note that this function currently does not check if the models
+#' are properly nested, and may not give sensible results in other
+#' cases.
+#' 
+#' The \code{parallel} argument can be used two ways: first, it can
+#' accept an integer >=2, in which case it will start up a cluster
+#' and run it for the duration of the call.  Alternatively, you can
+#' give it a \code{cluster} object, as returned by 
+#' \code{\link[parallel]{makeCluster}} or related functions.
+#'
+#' Using a pre-existing cluster is faster if you are doing multiple
+#' runs, since it avoids overhead of repeated startups.  However, you
+#' must make sure this package is loaded on the cluster: something like
+#' \code{clusterEvalQ(cl, library(lmerbootci))} should do it.
+#' 
+#' @param m0 The inner model (type \code{\link[lme4]{mer-class}})
+#' @param m1 The outer model (type \code{\link[lme4]{mer-class}})
+#' @param R The number of bootstrap replicates
+#' @param type The resampling scheme to use.  Defaults to parametric.
+#' @param parallel Specifies whether or how to use parallel execution.
+#'    See below for details.  Defaults to no parallelization.
+#' @return an object of class \code{lmer.bootlr}, whose \code{print} and
+#'    \code{summary} methods can be used to show results.
+#' @export
+lmer.bootlr <- function(m0, m1, R, type=c('parametric','residuals'), 
+                        parallel=NULL) {
+  type <- match.arg(type)
+  cl <- setup.cluster(parallel)
+  starttime <- proc.time()
+  lr <- 2 * (logLik(m1) - logLik(m0))
+  newresp <- switch(type, 
+                    parametric=simulate, 
+                    residuals=resamp.resid)
+  f <- function(x) {
+    y <- newresp(m0)
+    2 * (logLik(refit(m1, y)) - logLik(refit(m0, y)))
+  }
+  if (is.null(cl))
+    lrref <- sapply(integer(R), f)
+  else
+    lrref <- parSapply(cl, integer(R), f)
+  elapsed <- proc.time() - starttime
+  structure(
+    list(lr=lr, lrref=lrref, R=R, type=type, time=elapsed),
+    class='lmer.bootlr')
+}
+
 as.named.vector <- function(x, sep=':') {
   structure(
     as.vector(x),
@@ -144,15 +212,7 @@ extract.estimates <- function(m) {
 lmer.boot <- function(m, R, type=c('parametric','residuals'), 
                       parallel=NULL, ...) {
   type <- match.arg(type)
-  cl <- NULL
-  if (inherits(parallel, 'cluster'))
-    cl <- parallel
-  else if (!is.null(parallel)) {
-    stopifnot(is.numeric(parallel) && parallel>1)
-    cl <- makeCluster(parallel, 'PSOCK')
-    on.exit(stopCluster(cl))
-    clusterEvalQ(cl, library(lmerbootci))
-  }
+  cl <- setup.cluster(parallel)
   elapsed <- system.time(
     b <- boot(
       data=model.response(model.frame(m)),
