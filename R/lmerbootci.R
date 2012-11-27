@@ -143,6 +143,8 @@ setup.cluster <- function(parallel) {
 #' @return an object of class \code{lmer.bootlr}, whose \code{print} and
 #'    \code{summary} methods can be used to show results.
 #' @export
+#' @S3method summary lmer.bootlr
+#' @S3method print summary.lmer.bootlr
 lmer.bootlr <- function(m0, m1, R, type=c('parametric','residuals'), 
                         parallel=NULL) {
   type <- match.arg(type)
@@ -162,8 +164,32 @@ lmer.bootlr <- function(m0, m1, R, type=c('parametric','residuals'),
     lrref <- parSapply(cl, integer(R), f)
   elapsed <- proc.time() - starttime
   structure(
-    list(lr=lr, lrref=lrref, R=R, type=type, time=elapsed),
+    list(lr=lr, lrref=lrref, R=R, type=type, time=elapsed,
+         m0=m0, m1=m1),
     class='lmer.bootlr')
+}
+
+summary.lmer.bootlr <- function(object, ...) {
+  b <- object
+  df <- data.frame(
+    AIC=c(AIC(b$m0), AIC(b$m1)),
+    BIC=c(BIC(b$m0), BIC(b$m1)),
+    logLik=c(logLik(b$m0, REML=F), logLik(b$m1, REML=F)),
+    chiSq=c(NA, b$lr),
+    p=c(NA, mean(b$lrref > b$lr)),
+    row.names=c('m0','m1'))
+  class(df) <- c('summary.lmer.bootlr', class(df))
+  attr(df, 'R') <- b$R
+  attr(df, 'type') <- b$type
+  attr(df, 'time') <- b$time
+  df
+}
+
+print.summary.lmer.bootlr <- function(x, digits=max(3, getOption('digits')-3), ...) {
+  cat(sprintf('%s Bootstrap likelihood-ratio test (%d replicates)\n', 
+              tocaps(attr(x, 'type')),
+              attr(x, 'R')))
+  printCoefmat(x, digits, has.Pvalue=T, na.print='', ...)
 }
 
 as.named.vector <- function(x, sep=':') {
