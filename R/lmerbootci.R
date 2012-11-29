@@ -246,7 +246,7 @@ lmer.boot <- function(m, R, type=c('parametric','residuals'),
   cl <- setup.cluster(parallel)
   elapsed <- system.time(
     b <- boot(
-      data=model.response(model.frame(m)),
+      data=model.response(model.frame(m), type='numeric'),
       statistic=function(data) extract.estimates(refit(m, data)),
       sim='parametric',
       ran.gen=switch(type,
