@@ -66,7 +66,7 @@ resamp.resid <- function(m) {
   ranef.boot <- lapply(ranef.reflate(m), sample.rows, replace=T)
   ranef.boot <- unlist(ranef.boot, use.name=F)
   eta.fix <- as.vector(model.matrix(m) %*% fixef(m))
-  eta.ranef <- t(m@Zt) %*% ranef.boot
+  eta.ranef <- getME(m, 'Z') %*% ranef.boot
   if (f$family=='gaussian' && f$link=='identity') {
     resid.scaled <- attr(VarCorr(m), 'sc') * resid(m) / sd(resid(m))
     resid.boot <- sample(resid.scaled, replace=T)
@@ -152,7 +152,7 @@ lmer.bootlr <- function(m0, m1, R, type=c('parametric','residuals'),
   starttime <- proc.time()
   lr <- 2 * (logLik(m1, REML=F) - logLik(m0, REML=F))
   newresp <- switch(type, 
-                    parametric=simulate, 
+                    parametric=simulate[,1], 
                     residuals=resamp.resid)
   f <- function(x) {
     y <- newresp(m0)
@@ -246,11 +246,11 @@ lmer.boot <- function(m, R, type=c('parametric','residuals'),
   cl <- setup.cluster(parallel)
   elapsed <- system.time(
     b <- boot(
-      data=model.response(model.frame(m)),
+      data=model.response(model.frame(m), type='numeric'),
       statistic=function(data) extract.estimates(refit(m, data)),
       sim='parametric',
       ran.gen=switch(type,
-                     parametric=function(data, mle) simulate(mle),
+                     parametric=function(data, mle) simulate(mle)[,1],
                      residuals=function(data, mle) resamp.resid(mle)),
       mle=m,
       R=R,
