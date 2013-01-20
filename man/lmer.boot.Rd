@@ -48,6 +48,11 @@
   \code{clusterEvalQ(cl, library(lmerbootci))} should do
   it.
 }
+\examples{
+fm1 <- lmer(Reaction ~ Days + (Days|Subject), data=sleepstudy)
+fm1boot <- lmer.boot(fm1, 1000, type='residuals')
+summary(fm1boot, ci.type='perc')
+}
 \references{
   Carpenter, J. R., Goldstein, H., and Rasbash, J.  (2003).
   A novel bootstrap procedure for assessing the

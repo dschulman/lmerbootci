@@ -240,6 +240,10 @@ extract.estimates <- function(m) {
 #'   Royal Statistical Society: Series C (Applied Statistics), 
 #'   52(4):431-443.
 #' @export
+#' @examples
+#' fm1 <- lmer(Reaction ~ Days + (Days|Subject), data=sleepstudy)
+#' fm1boot <- lmer.boot(fm1, 1000, type='residuals')
+#' summary(fm1boot, ci.type='perc')
 lmer.boot <- function(m, R, type=c('parametric','residuals'), 
                       parallel=NULL, ...) {
   type <- match.arg(type)
